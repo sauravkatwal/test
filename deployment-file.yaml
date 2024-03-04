@@ -1,0 +1,7 @@
+template-file-path: ./cfn-template.yaml
+
+tags:
+
+    Name: 'gitsync'
+
+    Project: 'Demo'
