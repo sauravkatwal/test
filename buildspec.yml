@@ -1,0 +1,30 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      docker: 20
+    commands:
+      - echo "Installing AWS CLI v2 (if not available)"
+      - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      - unzip awscliv2.zip
+      - sudo ./aws/install || echo "AWS CLI already installed"
+  pre_build:
+    commands:
+      - echo "Setting variables"
+      - IMAGE_NAME="my-app"
+      - EC2_INSTANCE_ID="i-xxxxxxxxxxxxxxxxx"  # Replace with your EC2 instance ID
+  build:
+    commands:
+      - echo "Building Docker image"
+      - docker build -t $IMAGE_NAME:$CODEBUILD_RESOLVED_SOURCE_VERSION .
+      - docker save $IMAGE_NAME:$CODEBUILD_RESOLVED_SOURCE_VERSION -o my-app.tar
+  post_build:
+    commands:
+      - echo "Copying Docker image to EC2 via SSM"
+      - aws ssm send-command \
+          --targets "Key=InstanceIds,Values=$EC2_INSTANCE_ID" \
+          --document-name "AWS-RunShellScript" \
+          --comment "Deploy Docker App" \
+          --parameters 'commands=["mv /home/ubuntu/deploy/my-app.tar /home/ubuntu/deploy/my-app.tar || true","docker load -i /home/ubuntu/deploy/my-app.tar","/home/ubuntu/deploy/deploy.sh '"$CODEBUILD_SOURCE_VERSION"' '"$IMAGE_NAME:$CODEBUILD_RESOLVED_SOURCE_VERSION"'"]' \
+          --region YOUR_AWS_REGION
